@@ -1,0 +1,11 @@
+[package]
+name = "exr-tools"
+version = "0.1.0"
+# authors = ["Johannes Vollmer <32042925+johannesvollmer@users.noreply.github.com>", "Dorien Fevrier"]
+edition = "2018"
+
+[dependencies]
+
+
+
+
