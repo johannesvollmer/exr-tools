@@ -5,7 +5,7 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-exr = { git = "https://github.com/johannesvollmer/exrs", branch = "dev" }
+exr = "1.2.0"
 
 
 
