@@ -13,6 +13,7 @@ fn main(){
 
     match tool_name.as_str() {
         "extract-meta" => extract_meta::main(remaining_args),
+        "compression-stats" => compression_stats::main(remaining_args),
         unsupported_name => unimplemented!("exr tool with name `{}` not supported", unsupported_name)
     }
 }
