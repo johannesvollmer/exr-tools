@@ -8,21 +8,15 @@ use std::borrow::BorrowMut;
 pub fn main(mut args: impl Iterator<Item=String>){
     let path = args.next().expect("first arg must be image file path");
 
+    println!("warning: measured timing only applies to the Rust implementation, \
+            not to the (likely faster) reference implementation.");
+
     println!("analyzing exr file `{}`...", path);
 
     use exr::prelude::*;
     let mut image = read_all_data_from_file(path).expect("image cannot be opened");
 
-    let compressions = [
-        Compression::Uncompressed,
-        Compression::RLE,
-        Compression::PIZ,
-        Compression::ZIP1,
-        Compression::ZIP16,
-        Compression::PXR24,
-        Compression::B44,
-        Compression::B44A,
-    ];
+
 
     struct NullWriter {
         pos: u64,
@@ -59,7 +53,25 @@ pub fn main(mut args: impl Iterator<Item=String>){
         byte_size: u64,
     }
 
-    let stats = image.layer_data.iter().map(|layer|{
+    let all_compressions = vec![
+        Compression::Uncompressed,
+        Compression::RLE,
+        Compression::PIZ,
+        Compression::ZIP1,
+        Compression::ZIP16,
+        Compression::PXR24,
+        Compression::B44,
+        Compression::B44A,
+    ];
+
+    let lossless_compressions = all_compressions.iter().cloned()
+        .filter(|compr| !compr.may_loose_data())
+        .collect::<Vec<_>>();
+
+    let stats = image.layer_data.iter_mut().map(|layer|{
+        let mut compressions = lossless_compressions.clone();
+        if !compressions.contains(&layer.encoding.compression) { compressions.push(layer.encoding.compression); }
+
         let stats = compressions.iter().map(|&compression| {
             let start_time = std::time::Instant::now();
             let mut writer = NullWriter { current_byte_size: 0, pos: 0, };
@@ -113,7 +125,7 @@ pub fn main(mut args: impl Iterator<Item=String>){
 
                 if remaining.len() <= 1 { break; }
                 let slowest = *remaining.iter()
-                    .max_by_key(|stat| stat.byte_size).unwrap();
+                    .max_by_key(|stat| stat.duration).unwrap();
 
                 remaining.retain(|item| *item != slowest);
             }
@@ -131,7 +143,7 @@ pub fn main(mut args: impl Iterator<Item=String>){
         );
 
         println!(
-            "maybe best: {}, saving {:.1}% memory and {:.1}% time",
+            "probably best: {}, saving {:.1}% memory and {:.1}% time",
             best.compression,
             (1.0 - best.byte_size as f32 / current.byte_size as f32) * 100.0,
             (1.0 - best.duration.as_secs_f32() / current.duration.as_secs_f32()) * 100.0
@@ -152,10 +164,13 @@ pub fn main(mut args: impl Iterator<Item=String>){
         println!("full stats:");
         for stat in stats {
             match stat {
-                Ok(stat) => println!("\t{}: {}b, {}s", stat.compression, stat.byte_size, stat.duration.as_secs_f32()),
+                Ok(stat) => println!("\t{}: \t\t\t{}b, \t\t\t{}s", stat.compression, stat.byte_size, stat.duration.as_secs_f32()),
                 Err(error) => println!("\t{}", error)
             }
         }
+
+        let apply_best = true;
+        if apply_best { layer.encoding.compression = best.compression; }
     }
 
 }
